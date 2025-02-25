@@ -1,7 +1,7 @@
-import 'dart:math';
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+// import 'package:flutter_animate/flutter_animate.dart';
 
 void main() {
   runApp(MyApp());
@@ -18,7 +18,8 @@ class MyApp extends StatelessWidget {
         title: 'Namer App',
         theme: ThemeData(
           useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
+          colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color.fromARGB(255, 167, 34, 255)),
         ),
         home: MyHomePage(),
       ),
@@ -28,12 +29,21 @@ class MyApp extends StatelessWidget {
 
 class MyAppState extends ChangeNotifier {
   var current = WordPair.random();
+  var history = <WordPair>[];
+  var favorites = <WordPair>[];
+
   void getNext() {
+    history.add(current);
     current = WordPair.random();
+
+    print('current: $current, history: $history');
     notifyListeners();
   }
 
-  var favorites = <WordPair>[];
+  void removeFavorite(WordPair word) {
+    favorites.remove(word);
+    notifyListeners();
+  }
 
   void toggleFavorite() {
     if (favorites.contains(current)) {
@@ -115,8 +125,7 @@ class FavoritesPage extends StatelessWidget {
     if (favorites.isEmpty) {
       return Center(child: Text('No favorites yet :/'));
     }
-    return Scaffold(
-        body: Card(
+    return Card(
       color: theme.colorScheme.onPrimaryFixedVariant,
       child: ListView.builder(
           padding: const EdgeInsets.all(8),
@@ -126,17 +135,67 @@ class FavoritesPage extends StatelessWidget {
               margin: const EdgeInsets.all(5),
               height: 50,
               color: Colors.amber[colorCodes[index % colorCodes.length]],
-              child: Center(child: Text('${favorites[index]}')),
+              child: Row(children: [
+                IconButton(
+                  onPressed: () {
+                    appState.removeFavorite(favorites[index]);
+                  },
+                  icon: Icon(Icons.delete),
+                ),
+                Center(child: Text('${favorites[index]}'))
+              ]),
             );
           }),
-    ));
+    );
   }
 }
 
-class GeneratorPage extends StatelessWidget {
+class GeneratorPage extends StatefulWidget {
+  @override
+  State<GeneratorPage> createState() => _GeneratorPageState();
+}
+
+class _GeneratorPageState extends State<GeneratorPage> {
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+  final ScrollController _scrollController = ScrollController();
+
+  @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
     var pair = appState.current;
+
+    void _addItem(WordPair word) {
+      final int index = appState.history.length;
+
+      if (appState.history.length >= 8) {
+        _listKey.currentState!.removeItem(
+          0,
+          (context, animation) => FadeTransition(
+            opacity: animation,
+          ),
+        );
+        appState.history.removeAt(0); // Remove first item from history
+      }
+      appState.getNext();
+
+      if (_listKey.currentState != null) {
+        _listKey.currentState!
+            .insertItem(index > 7 ? 7 : index); // Ensure index never exceeds 7
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(Duration(milliseconds: 300), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController
+                  .position.maxScrollExtent, // Move to the last item
+              duration: Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      });
+    }
 
     IconData icon;
     if (appState.favorites.contains(pair)) {
@@ -148,7 +207,51 @@ class GeneratorPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Text('Baby now my first app:'),
+          // child: ListView(
+          //   children: [
+          //     for (var word in appState.wordArr)
+          //       Row(
+          //         children: [
+          //           if (appState.favorites.any(
+          //               (element) => element.asLowerCase == word.asLowerCase))
+          //             Icon(Icons.favorite),
+          //           SizedBox(width: 8),
+          //           Text(word.asLowerCase).animate().fade().scale(),
+          //         ],
+          //       ),
+          //   ],
+          // ),
+
+          Align(
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: 200,
+              height: 200,
+              child: AnimatedList(
+                initialItemCount: appState.history.length,
+                itemBuilder: (context, index, animation) {
+                  return SizeTransition(
+                    sizeFactor: animation,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (appState.favorites.any((element) =>
+                            element.asLowerCase ==
+                            appState.history[index].asLowerCase))
+                          Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: Icon(Icons.favorite)),
+                        Text(appState.history[index].asLowerCase)
+                      ],
+                    ),
+                  );
+                },
+                key: _listKey,
+                controller: _scrollController,
+              ),
+            ),
+          ),
+
           RandomWord(pair: pair),
           SizedBox(
             height: 10,
@@ -166,7 +269,7 @@ class GeneratorPage extends StatelessWidget {
               SizedBox(width: 10),
               ElevatedButton(
                 onPressed: () {
-                  appState.getNext();
+                  _addItem(appState.current);
                 },
                 child: Text('Next'),
               ),
@@ -193,15 +296,24 @@ class RandomWord extends StatelessWidget {
       color: theme.colorScheme.onPrimary,
     );
 
-    return Card(
-      elevation: 3,
-      color: theme.colorScheme.onPrimaryFixedVariant,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Text(
-          pair.asLowerCase,
-          style: style,
-          semanticsLabel: pair.asPascalCase,
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Card(
+        elevation: 3,
+        color: theme.colorScheme.onPrimaryFixedVariant,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text.rich(
+            TextSpan(children: [
+              TextSpan(
+                  text: pair.first,
+                  style: style.copyWith(fontStyle: FontStyle.italic)),
+              TextSpan(
+                  text: pair.second,
+                  style: style.copyWith(fontWeight: FontWeight.bold)),
+            ]),
+            semanticsLabel: pair.asPascalCase,
+          ),
         ),
       ),
     );
