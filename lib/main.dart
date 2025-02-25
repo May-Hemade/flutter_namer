@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color.fromARGB(255, 167, 34, 255)),
+              seedColor: const Color.fromARGB(255, 110, 60, 196)),
         ),
         home: MyHomePage(),
       ),
@@ -66,8 +66,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     var colorScheme = Theme.of(context).colorScheme;
-    Widget
-        page; // we can also say that page=placeholder() like incase it was a not found index
+    Widget page;
     switch (selectedIndex) {
       case 0:
         page = GeneratorPage();
@@ -87,33 +86,38 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
     return Scaffold(
-      body: Row(
-        children: [
-          SafeArea(
-            child: NavigationRail(
-              extended: false,
-              destinations: [
-                NavigationRailDestination(
-                  icon: Icon(Icons.home),
-                  label: Text('Home'),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          bool isLargeScreen = constraints.maxWidth > 800;
+          return Row(
+            children: [
+              SafeArea(
+                child: NavigationRail(
+                  extended: isLargeScreen,
+                  destinations: [
+                    NavigationRailDestination(
+                      icon: Icon(Icons.home),
+                      label: Text('Home'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.favorite),
+                      label: Text('Favorites'),
+                    ),
+                  ],
+                  selectedIndex: selectedIndex,
+                  onDestinationSelected: (value) {
+                    setState(() {
+                      selectedIndex = value;
+                    });
+                  },
                 ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.favorite),
-                  label: Text('Favorites'),
-                ),
-              ],
-              selectedIndex: selectedIndex,
-              onDestinationSelected: (value) {
-                setState(() {
-                  selectedIndex = value;
-                });
-              },
-            ),
-          ),
-          Expanded(
-            child: mainArea,
-          ),
-        ],
+              ),
+              Expanded(
+                child: mainArea,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -125,34 +129,71 @@ class FavoritesPage extends StatelessWidget {
     var appState = context.watch<MyAppState>();
     var theme = Theme.of(context);
 
-    final List<int> colorCodes = <int>[900, 800, 700, 600, 500, 100];
+    final List<int> colorCodes = <int>[600, 400, 200];
     var favorites = appState.favorites;
 
     if (favorites.isEmpty) {
       return Center(child: Text('No favorites yet :/'));
     }
-    return Card(
-      color: theme.colorScheme.onPrimaryFixedVariant,
-      child: ListView.builder(
-          padding: const EdgeInsets.all(8),
-          itemCount: favorites.length,
-          itemBuilder: (BuildContext context, int index) {
-            return Container(
-              margin: const EdgeInsets.all(5),
-              height: 50,
-              color: Colors.amber[colorCodes[index % colorCodes.length]],
-              child: Row(children: [
-                IconButton(
-                  onPressed: () {
-                    appState.removeFavorite(favorites[index]);
-                  },
-                  icon: Icon(Icons.delete),
+    return Column(children: [
+      Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: AnimatedTextKit(
+            animatedTexts: [
+              TyperAnimatedText(
+                'Favorites',
+                speed: Duration(milliseconds: 100),
+                textStyle: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.secondary),
+              ),
+            ],
+            totalRepeatCount: 1,
+          )),
+      Expanded(
+        child: ListView.builder(
+            padding: const EdgeInsets.all(8),
+            itemCount: favorites.length,
+            itemBuilder: (BuildContext context, int index) {
+              return Container(
+                margin: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color:
+                      Colors.deepPurple[colorCodes[index % colorCodes.length]],
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                Center(child: Text('${favorites[index]}'))
-              ]),
-            );
-          }),
-    );
+                height: 50,
+                width: 100,
+                child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 10),
+                        child: Text('${favorites[index]}',
+                            style: TextStyle(
+                              color: theme.colorScheme.onPrimary,
+                              fontSize: 20,
+                            )),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          onPressed: () {
+                            appState.removeFavorite(favorites[index]);
+                          },
+                          icon: Icon(
+                            Icons.delete,
+                            color: theme.colorScheme.onPrimary,
+                          ),
+                        ),
+                      ),
+                    ]),
+              );
+            }),
+      ),
+    ]);
   }
 }
 
