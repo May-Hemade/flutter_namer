@@ -1,7 +1,7 @@
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// import 'package:flutter_animate/flutter_animate.dart';
+import 'package:animated_text_kit/animated_text_kit.dart';
 
 void main() {
   runApp(MyApp());
@@ -33,7 +33,7 @@ class MyAppState extends ChangeNotifier {
   var favorites = <WordPair>[];
 
   void getNext() {
-    history.add(current);
+    history.insert(0, current);
     current = WordPair.random();
 
     print('current: $current, history: $history');
@@ -65,18 +65,27 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    var colorScheme = Theme.of(context).colorScheme;
     Widget
         page; // we can also say that page=placeholder() like incase it was a not found index
     switch (selectedIndex) {
       case 0:
         page = GeneratorPage();
-        break;
+
       case 1:
         page = FavoritesPage();
-        break;
+
       default:
         throw UnimplementedError('no widget for $selectedIndex');
     }
+
+    var mainArea = ColoredBox(
+      color: colorScheme.primaryContainer,
+      child: AnimatedSwitcher(
+        duration: Duration(milliseconds: 900),
+        child: page,
+      ),
+    );
     return Scaffold(
       body: Row(
         children: [
@@ -102,10 +111,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
           ),
           Expanded(
-            child: Container(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              child: page,
-            ),
+            child: mainArea,
           ),
         ],
       ),
@@ -164,31 +170,29 @@ class _GeneratorPageState extends State<GeneratorPage> {
     var appState = context.watch<MyAppState>();
     var pair = appState.current;
 
-    void _addItem(WordPair word) {
-      final int index = appState.history.length;
+    var theme = Theme.of(context);
 
+    void _addItem(WordPair word) {
       if (appState.history.length >= 8) {
         _listKey.currentState!.removeItem(
-          0,
+          appState.history.length - 1,
           (context, animation) => FadeTransition(
             opacity: animation,
           ),
         );
-        appState.history.removeAt(0); // Remove first item from history
+        appState.history.removeAt(appState.history.length - 1);
       }
       appState.getNext();
 
       if (_listKey.currentState != null) {
-        _listKey.currentState!
-            .insertItem(index > 7 ? 7 : index); // Ensure index never exceeds 7
+        _listKey.currentState!.insertItem(0);
       }
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Future.delayed(Duration(milliseconds: 300), () {
           if (_scrollController.hasClients) {
             _scrollController.animateTo(
-              _scrollController
-                  .position.maxScrollExtent, // Move to the last item
+              _scrollController.position.maxScrollExtent,
               duration: Duration(milliseconds: 300),
               curve: Curves.easeOut,
             );
@@ -207,42 +211,41 @@ class _GeneratorPageState extends State<GeneratorPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // child: ListView(
-          //   children: [
-          //     for (var word in appState.wordArr)
-          //       Row(
-          //         children: [
-          //           if (appState.favorites.any(
-          //               (element) => element.asLowerCase == word.asLowerCase))
-          //             Icon(Icons.favorite),
-          //           SizedBox(width: 8),
-          //           Text(word.asLowerCase).animate().fade().scale(),
-          //         ],
-          //       ),
-          //   ],
-          // ),
-
           Align(
             alignment: Alignment.center,
             child: SizedBox(
               width: 200,
-              height: 200,
+              height: 300,
               child: AnimatedList(
+                reverse: true,
                 initialItemCount: appState.history.length,
                 itemBuilder: (context, index, animation) {
                   return SizeTransition(
                     sizeFactor: animation,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (appState.favorites.any((element) =>
-                            element.asLowerCase ==
-                            appState.history[index].asLowerCase))
-                          Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: Icon(Icons.favorite)),
-                        Text(appState.history[index].asLowerCase)
-                      ],
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (appState.favorites.any((element) =>
+                              element.asLowerCase ==
+                              appState.history[index].asLowerCase))
+                            Padding(
+                                padding: const EdgeInsets.only(right: 10),
+                                child: Icon(
+                                  Icons.favorite,
+                                  size: 15,
+                                  color: theme.colorScheme.primary,
+                                )),
+                          Text(
+                            appState.history[index].asLowerCase,
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -251,10 +254,15 @@ class _GeneratorPageState extends State<GeneratorPage> {
               ),
             ),
           ),
-
+          SizedBox(
+            height: 30,
+          ),
           RandomWord(pair: pair),
           SizedBox(
             height: 10,
+          ),
+          SizedBox(
+            height: 30,
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -296,11 +304,12 @@ class RandomWord extends StatelessWidget {
       color: theme.colorScheme.onPrimary,
     );
 
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: Card(
-        elevation: 3,
-        color: theme.colorScheme.onPrimaryFixedVariant,
+    return Card(
+      elevation: 3,
+      color: theme.colorScheme.onPrimaryFixedVariant,
+      child: AnimatedSize(
+        alignment: Alignment.topCenter,
+        duration: Duration(milliseconds: 400),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Text.rich(
