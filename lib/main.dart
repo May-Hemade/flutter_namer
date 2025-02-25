@@ -1,10 +1,15 @@
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+// import 'package:project_flutter/image_card.dart';
+import 'package:project_flutter/image_generator.dart';
 import 'package:provider/provider.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
 
-void main() {
-  runApp(MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -31,8 +36,11 @@ class MyAppState extends ChangeNotifier {
   var current = WordPair.random();
   var history = <WordPair>[];
   var favorites = <WordPair>[];
+  var images = <GeneratedImage>[];
 
   void getNext() {
+    String apiKey = dotenv.env['OPEN_AI_KEY'] ?? 'DefaultAPIKey';
+    print('API Key: $apiKey');
     history.insert(0, current);
     current = WordPair.random();
 
@@ -51,6 +59,11 @@ class MyAppState extends ChangeNotifier {
     } else {
       favorites.add(current);
     }
+    notifyListeners();
+  }
+
+  void addImage(GeneratedImage image) {
+    images.add(image);
     notifyListeners();
   }
 }
@@ -73,6 +86,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
       case 1:
         page = FavoritesPage();
+      case 2:
+        page = GalleryPage();
 
       default:
         throw UnimplementedError('no widget for $selectedIndex');
@@ -103,6 +118,10 @@ class _MyHomePageState extends State<MyHomePage> {
                       icon: Icon(Icons.favorite),
                       label: Text('Favorites'),
                     ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.image),
+                      label: Text('Gallery'),
+                    ),
                   ],
                   selectedIndex: selectedIndex,
                   onDestinationSelected: (value) {
@@ -119,6 +138,77 @@ class _MyHomePageState extends State<MyHomePage> {
           );
         },
       ),
+    );
+  }
+}
+
+class GeneratedImage {
+  final String image;
+  final String text;
+
+  GeneratedImage(this.image, this.text);
+}
+
+class GalleryPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+    var images = appState.images;
+    var theme = Theme.of(context);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: AnimatedTextKit(
+            animatedTexts: [
+              TyperAnimatedText(
+                'Gallery',
+                speed: Duration(milliseconds: 100),
+                textStyle: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.secondary),
+              ),
+            ],
+            totalRepeatCount: 1,
+          ),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                int numberCol = constraints.maxWidth > 800 ? 3 : 2;
+                return GridView.count(crossAxisCount: numberCol, children: [
+                  for (var image in images)
+                    Card(
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 20),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Image.network(
+                                  image.image,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(image.text),
+                          ),
+                        ],
+                      ),
+                    ),
+                ]);
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -205,13 +295,24 @@ class GeneratorPage extends StatefulWidget {
 class _GeneratorPageState extends State<GeneratorPage> {
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final ScrollController _scrollController = ScrollController();
+  String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
     var pair = appState.current;
+    final ImageGenerator imageGenerator = ImageGeneratorFactory.create();
 
     var theme = Theme.of(context);
+
+    void getImage() async {
+      String? url =
+          await imageGenerator.generate(appState.current.asPascalCase);
+      setState(() {
+        imageUrl = url;
+      });
+      appState.addImage(GeneratedImage(url!, appState.current.asLowerCase));
+    }
 
     void _addItem(WordPair word) {
       if (appState.history.length >= 8) {
@@ -322,8 +423,40 @@ class _GeneratorPageState extends State<GeneratorPage> {
                 },
                 child: Text('Next'),
               ),
+              SizedBox(width: 10),
+              ElevatedButton(
+                onPressed: () {
+                  getImage();
+                },
+                child: Text('Genrate Image'),
+              ),
             ],
           ),
+          if (imageUrl != null)
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: AnimatedSwitcher(
+                duration: Duration(seconds: 1),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  );
+                },
+                child: SizedBox(
+                  key: ValueKey(imageUrl),
+                  width: 200,
+                  height: 200,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.network(
+                      imageUrl!,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
