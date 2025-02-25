@@ -1,6 +1,7 @@
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:project_flutter/hover_image.dart';
 // import 'package:project_flutter/image_card.dart';
 import 'package:project_flutter/image_generator.dart';
 import 'package:provider/provider.dart';
@@ -64,6 +65,11 @@ class MyAppState extends ChangeNotifier {
 
   void addImage(GeneratedImage image) {
     images.add(image);
+    notifyListeners();
+  }
+
+  void removeImage(GeneratedImage image) {
+    images.remove(image);
     notifyListeners();
   }
 }
@@ -187,18 +193,26 @@ class GalleryPage extends StatelessWidget {
                           Expanded(
                             child: Padding(
                               padding: const EdgeInsets.only(top: 20),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Image.network(
-                                  image.image,
-                                  fit: BoxFit.cover,
-                                ),
+                              // child: ClipRRect(
+                              //   borderRadius: BorderRadius.circular(10),
+                              //   child: Image.network(
+                              //     image.image,
+                              //     fit: BoxFit.cover,
+                              //   ),
+                              // ),
+
+                              child: HoverDeleteImage(
+                                imageUrl: image.image,
+                                onDelete: () {
+                                  appState.removeImage(image);
+                                },
                               ),
                             ),
                           ),
                           Padding(
                             padding: const EdgeInsets.all(8.0),
-                            child: Text(image.text),
+                            child: Text(image.text,
+                                style: TextStyle(fontSize: 15)),
                           ),
                         ],
                       ),
