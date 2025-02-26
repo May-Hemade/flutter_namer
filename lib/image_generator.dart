@@ -26,6 +26,7 @@ class RandomImageGenerator implements ImageGenerator {
 
   @override
   Future<String?> generate(String name) async {
+    await Future.delayed(Duration(seconds: 3));
     return images[Random().nextInt(images.length)];
   }
 }
@@ -50,15 +51,17 @@ class OpenAiImageGenerator implements ImageGenerator {
         },
         body: jsonEncode({
           "model": "dall-e-2",
-          "prompt": "Generate an image of $name",
+          "prompt":
+              "A high-quality, detailed digital painting of a $name. The image should creatively interpret the combination, blending both elements seamlessly. Use a realistic or fantasy art style, ensuring the composition is visually appealing and imaginative.",
           "n": 1,
-          "size": "256x256"
+          "size": "256x256",
+          "quality": "standard"
         }),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print("Generated image: ${data['images'][0]['url']}");
-        return data['images'][0]['url'];
+        print("Generated image: ${data['data'][0]['url']}");
+        return data['data'][0]['url'];
       } else {
         print("Failed to generate image: ${response.statusCode}");
         return null;

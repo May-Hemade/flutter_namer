@@ -310,22 +310,42 @@ class _GeneratorPageState extends State<GeneratorPage> {
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final ScrollController _scrollController = ScrollController();
   String? imageUrl;
+  bool isLoading = false;
+
+  void updateImage(MyAppState appState) {
+    setState(() {
+      GeneratedImage? foundImage = appState.images.lastWhere(
+        (img) => img.text == appState.current.asLowerCase,
+        orElse: () => GeneratedImage("", ""),
+      );
+
+      imageUrl = foundImage.image.isNotEmpty ? foundImage.image : null;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
     var pair = appState.current;
+    updateImage(appState);
     final ImageGenerator imageGenerator = ImageGeneratorFactory.create();
 
     var theme = Theme.of(context);
 
-    void getImage() async {
+    void generateImage() async {
+      setState(() {
+        isLoading = true;
+      });
       String? url =
           await imageGenerator.generate(appState.current.asPascalCase);
+
+      if (url != null) {
+        appState.addImage(GeneratedImage(url, appState.current.asLowerCase));
+        updateImage(appState);
+      }
       setState(() {
-        imageUrl = url;
+        isLoading = false;
       });
-      appState.addImage(GeneratedImage(url!, appState.current.asLowerCase));
     }
 
     void _addItem(WordPair word) {
@@ -365,13 +385,13 @@ class _GeneratorPageState extends State<GeneratorPage> {
     }
     return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Align(
             alignment: Alignment.center,
             child: SizedBox(
               width: 200,
-              height: 300,
+              height: 400,
               child: AnimatedList(
                 reverse: true,
                 initialItemCount: appState.history.length,
@@ -439,14 +459,25 @@ class _GeneratorPageState extends State<GeneratorPage> {
               ),
               SizedBox(width: 10),
               ElevatedButton(
-                onPressed: () {
-                  getImage();
-                },
-                child: Text('Genrate Image'),
+                onPressed: isLoading
+                    ? null
+                    : () {
+                        generateImage();
+                      },
+                child: Text('Generate Image'),
               ),
             ],
           ),
-          if (imageUrl != null)
+          if (isLoading)
+            Padding(
+              padding: const EdgeInsets.all(80),
+              child: SizedBox(
+                width: 50,
+                height: 50,
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          if (imageUrl != null && !isLoading)
             Padding(
               padding: const EdgeInsets.all(20),
               child: AnimatedSwitcher(
@@ -470,7 +501,7 @@ class _GeneratorPageState extends State<GeneratorPage> {
                   ),
                 ),
               ),
-            ),
+            )
         ],
       ),
     );
